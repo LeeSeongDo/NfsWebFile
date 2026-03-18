@@ -1,0 +1,16 @@
+# Dockerfile.was
+FROM python:3.9-slim
+WORKDIR /app
+
+# 1. 모든 파일 복사 및 라이브러리 설치
+COPY . .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 💡 [결정적 수정] 작업 디렉토리를 main.py가 있는 폴더로 변경합니다.
+# 이렇게 하면 'import login', 'import model'이 모두 정상 작동합니다.
+WORKDIR /app/NfsWebFile-main/dynamic
+
+EXPOSE 8000
+
+# 💡 실행 명령어에서도 이제 앞에 'dynamic.'을 붙일 필요가 없습니다.
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
