@@ -7,3 +7,4 @@ redis
 pydantic
 python-multipart
 pyjwt
+requests

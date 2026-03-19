@@ -1,27 +1,32 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from sqlalchemy import create_engine, text
-import redis
+from sqlalchemy import text
 import json
 import time
+
+# [설정] DB와 Redis 연결은 database.py에서 통합 관리합니다.
+from database import engine, rd
+
+# [보안] 팀원이 작성한 커스텀 보안 미들웨어
+from security import SecurityFilterMiddleware
+
+# [라우터]
 import login  
 import signin
 import reservation
 
 app = FastAPI()
 
-DB_URL = "mysql+pymysql://root:1234@mysql:3306/ticket"
-engine = create_engine(DB_URL)
-
-rd = redis.Redis(host='redis-service', port=6379, db=0, decode_responses=True)
-
-# 🚨 와일드카드(*) 대신 프론트엔드 도메인만 적어줍니다.
+# ==========================================
+# [CORS 설정] 두 분의 도메인/IP를 모두 합친 통합 리스트
+# ==========================================
 origins = [
     "http://www.pulseticket.ke:30007",
-    "https://www.pulseticket.ke",  # ✅ 필수 추가!
-    "https://pulseticket.ke",      # ✅ 필수 추가!
-    "http://10.4.0.203",           # (현재 접속 중인 IP도 혹시 몰라 추가)
+    "https://www.pulseticket.ke",  
+    "https://pulseticket.ke",      
+    "http://www.pulseticket.ke",
+    "http://10.4.0.203",           
     "https://10.4.0.203",
     "http://10.4.0.201", 
     "http://10.4.0.150:30007",
@@ -36,16 +41,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 보안 미들웨어 적용
+app.add_middleware(SecurityFilterMiddleware)
+
+# ==========================================
+# [라우터 등록]
+# ==========================================
 app.include_router(login.router)
 app.include_router(signin.router)
 app.include_router(reservation.router, prefix="/api/reservations")
 
+# ==========================================
+# [API 엔드포인트]
+# ==========================================
+
 @app.get("/")
 async def root():
-    return {"message": "티켓팅 API 서버가 작동 중입니다."}
+    return {"message": "Welcome to the Integrated Ticketing System! 🚀 (서버 정상 작동 중)"}
 
 @app.get("/db-test")
-async def db_test():
+def db_test():
     try:
         with engine.connect() as conn:
             result = conn.execute(text("SELECT 1"))
@@ -53,7 +68,7 @@ async def db_test():
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-# ✨ [NEW] 잃어버렸던 대기열 관리자(매니저) API 복구!
+# ✨ 대기열 관리자 API (두 분의 코드가 동일하므로 하나로 통합)
 @app.post("/next")
 def allow_next_users(count: int = 10): 
     try:
@@ -75,11 +90,11 @@ def allow_next_users(count: int = 10):
     except Exception as e:
         return {"status": "error", "message": f"대기열 이동 중 오류 발생: {str(e)}"}
 
+# ✨ 예약 내역 조회 API (작성자님 코드 보존)
 @app.get("/api/reservations/{user_id}")
 def get_user_reservations(user_id: str):
     try:
         with engine.connect() as conn:
-            # 파이썬에서 JSON으로 쉽게 변환되도록 날짜와 시간 포맷을 지정하여 SELECT
             query = text("""
                 SELECT
                     res_id, user_id, seat_id, seat_num, perf_id, perf_title,
@@ -91,11 +106,33 @@ def get_user_reservations(user_id: str):
                 WHERE user_id = :uid
                 ORDER BY res_date DESC
             """)
-
             result = conn.execute(query, {"uid": user_id}).mappings().all()
-
-            # 조회된 데이터를 딕셔너리 리스트로 변환하여 반환
             return [dict(row) for row in result]
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"DB 조회 중 오류 발생: {str(e)}")
+
+# ✨ 빈 좌석 조회 API (팀원 코드 보존)
+@app.get("/seats")
+def get_seats():
+    try:
+        with engine.connect() as conn:
+            query = text("SELECT seat_id, seat_num FROM seat WHERE status = 'AVAILABLE'")
+            result = conn.execute(query)
+            seats = [{"seat_id": row[0], "seat_num": row[1]} for row in result]
+            return {"available_seats": seats}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+# ✨ 단일 유저 조회 API (팀원 코드 보존)
+@app.get("/users/{user_id}")
+def get_user(user_id: str):
+    try:
+        with engine.connect() as conn:
+            query = text("SELECT user_id, user_name, user_phone FROM user WHERE user_id = :user_id")
+            result = conn.execute(query, {"user_id": user_id}).fetchone()
+            if result:
+                return {"user_id": result[0], "user_name": result[1], "user_phone": result[2]}
+            return {"error": "User not found"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}

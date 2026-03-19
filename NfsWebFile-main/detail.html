@@ -70,31 +70,31 @@
     </div>
 
     <div id="captchaModal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4">
-        <div class="absolute inset-0 bg-slate-900/70 backdrop-blur-sm"></div>
-        <div class="relative bg-white rounded-3xl w-full max-w-md p-8 text-center shadow-2xl">
-            <button onclick="closeModals()" class="absolute top-5 right-5 text-gray-400 hover:text-gray-600 transition-colors">
-                <i data-lucide="x" class="w-6 h-6"></i>
-            </button>
-            <div class="w-16 h-16 bg-pink-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <i data-lucide="shield-check" class="w-8 h-8 text-pink-600"></i>
-            </div>
-            <h2 class="text-2xl font-black text-gray-900 mb-2">자동 예매 방지</h2>
-            <p class="text-gray-500 text-sm mb-6">부정 예매를 막기 위해 아래 문자를 입력해주세요.</p>
-            <div class="bg-purple-50 border-2 border-purple-200 rounded-2xl p-4 mb-4 flex items-center justify-between">
-                <span id="captchaText" class="text-3xl font-black text-purple-700 tracking-[0.3em] ml-4 no-select select-none"></span>
-                <button onclick="generateCaptcha()" class="w-10 h-10 bg-white rounded-full flex items-center justify-center text-purple-600 hover:bg-purple-100 transition-colors shadow-sm">
-                    <i data-lucide="refresh-cw" class="w-5 h-5"></i>
-                </button>
-            </div>
-            <div class="flex gap-2">
-                <input type="text" id="captchaInput" placeholder="보안 문자를 입력하세요" class="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-center font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 transition-all uppercase">
-            </div>
-            <button onclick="verifyCaptcha()" class="w-full mt-4 bg-purple-600 hover:bg-purple-700 text-white font-bold text-lg py-3.5 rounded-xl shadow-md transition-all">
-                입력 완료
-            </button>
+    <div class="absolute inset-0 bg-slate-900/70 backdrop-blur-sm"></div>
+    <div class="relative bg-white rounded-3xl w-full max-w-md p-8 text-center shadow-2xl">
+        <button onclick="closeCaptchaModal()" class="absolute top-5 right-5 text-gray-400 hover:text-gray-600 transition-colors">
+            <i data-lucide="x" class="w-6 h-6"></i>
+        </button>
+        <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i data-lucide="bot" class="w-8 h-8 text-red-600"></i>
         </div>
+        <h2 class="text-2xl font-black text-gray-900 mb-2" id="captcha-title">매크로 의심 동작 감지!</h2>
+        <p class="text-gray-500 text-sm mb-6" id="captcha-desc">부정 예매를 막기 위해 사람임을 증명해주세요.</p>
+        
+        <div class="captcha-container flex justify-center mb-6">
+            <div class="cf-turnstile" 
+     data-sitekey="3x00000000000000000000FF" 
+     data-callback="javascriptCallback"
+     data-appearance="always"></div>
+        </div>
+
+        <button onclick="retryWithCaptcha()" class="w-full mt-4 bg-red-600 hover:bg-red-700 text-white font-bold text-lg py-3.5 rounded-xl shadow-md transition-all">
+            인증 완료 및 예매 진행
+        </button>
     </div>
+</div>
 
     <script src="./js/detail.js"></script>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </body>
 </html>
