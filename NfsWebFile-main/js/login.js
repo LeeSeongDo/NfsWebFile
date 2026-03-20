@@ -46,13 +46,13 @@ async function handleLogin() {
 }
 
 const idRegex = /^[a-zA-Z0-9]{5,}$/;
-const pwRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/;
 
 function executeLoginValidation() {
     const idInput = document.getElementById('employeeId');
     const pwInput = document.getElementById('password');
     const message = document.getElementById('pw-message');
     
+    // 아이디 검사 유지
     if (!idRegex.test(idInput.value)) {
         message.textContent = "아이디는 5자 이상의 영문/숫자여야 합니다.";
         message.style.color = "#ff4d4d";
@@ -60,16 +60,16 @@ function executeLoginValidation() {
         return; 
     }
 
-    if (!pwRegex.test(pwInput.value)) {
-        message.textContent = "비밀번호는 영문, 숫자, 특수문자 포함 8자 이상이어야 합니다.";
+    // 비밀번호는 '빈칸'인지만 검사하도록 변경!
+    if (pwInput.value.trim() === "") {
+        message.textContent = "비밀번호를 입력해주세요.";
         message.style.color = "#ff4d4d";
         pwInput.focus();
         return; 
     }
 
-    handleLogin();
+    handleLogin(); // 문제 없으면 서버로 전송
 }
-
 document.getElementById('loginBtn').addEventListener('click', executeLoginValidation);
 
 document.getElementById('employeeId').addEventListener('keyup', function(event) {

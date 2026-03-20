@@ -70,6 +70,26 @@
         </div>
     </main>
 
+
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+
+<div id="captchaModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-slate-900/70 backdrop-blur-sm"></div>
+    <div class="relative bg-white rounded-3xl w-full max-w-md p-8 text-center shadow-2xl">
+        <div class="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i data-lucide="bot" class="w-8 h-8 text-purple-600"></i>
+        </div>
+        <h2 class="text-2xl font-black text-gray-900 mb-2">본인 인증</h2>
+        <p class="text-gray-500 text-sm mb-6">부정 예매를 막기 위해 사람임을 인증해주세요.</p>
+        <div class="captcha-container flex justify-center mb-6">
+            <div class="cf-turnstile" 
+                 data-sitekey="3x00000000000000000000FF" 
+                 data-callback="javascriptCallback"></div>
+        </div>
+        <p class="text-xs text-gray-400">인증이 완료되면 좌석 선택이 가능해집니다.</p>
+    </div>
+</div>
+
     <script src="./js/booking.js"></script>
 </body>
 </html>

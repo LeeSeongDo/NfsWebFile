@@ -4,10 +4,6 @@ const API_KEY = "76bdb5ba111645e394169b887d8a5e33";
 
 let currentPerformanceData = null;
 
-// 💡 [핵심 추가] 예매 버튼 클릭 여부와 캡차 토큰을 보관할 주머니
-let isBookingBtnClicked = false;
-let cachedCaptchaToken = "";
-
 // ==========================================
 // [0] 코어 유틸리티
 // ==========================================
@@ -116,7 +112,7 @@ function handleLogout() {
 }
 
 // ==========================================
-// [3] 데이터 통신 로직
+// [3] 데이터 통신 로직 (이미지 보안 경고 해결)
 // ==========================================
 async function fetchPerformanceDetail(id) {
     const container = document.getElementById('detailContainer');
@@ -144,10 +140,11 @@ async function fetchPerformanceDetail(id) {
 
         if (!db) throw new Error("KOPIS 데이터 없음");
 
+        // 💡 Mixed Content (HTTP 이미지 차단) 방지를 위해 https:// 로 강제 치환
         data = {
             id: id,
             title: getText(db, "prfnm"),
-            poster: getText(db, "poster", "https://via.placeholder.com/300x420?text=No+Image"),
+            poster: getText(db, "poster", "https://via.placeholder.com/300x420?text=No+Image").replace("http://", "https://"),
             genre: getText(db, "genrenm"),
             startDate: getText(db, "prfpdfrom"),
             endDate: getText(db, "prfpdto"),
@@ -160,7 +157,7 @@ async function fetchPerformanceDetail(id) {
 
         const styurlNodes = db.getElementsByTagName("styurl");
         for (let i = 0; i < styurlNodes.length; i++) {
-            const imgUrl = styurlNodes[i].textContent.trim();
+            const imgUrl = styurlNodes[i].textContent.trim().replace("http://", "https://");
             if (imgUrl) introImagesHtml += `<img src="${imgUrl}" alt="상세 이미지" loading="lazy" class="w-full max-w-3xl mb-4 rounded-xl shadow-sm">`;
         }
 
@@ -240,35 +237,22 @@ function renderDetailView(container, data, introImagesHtml) {
     document.getElementById('bookTicketBtn').addEventListener('click', handleBooking);
 }
 
-function moveToBookingPage(token) {
+function moveToBookingPage() {
     const { id, title, facility, defaultPrice, poster } = currentPerformanceData;
     const date = document.getElementById('bookDate').value;
     const time = document.getElementById('bookTime').value;
 
     const queryParams = new URLSearchParams({
         id: id, title: title, date: date, time: time,
-        place: facility, price: defaultPrice, poster: poster,
-        turnstile_token: token 
+        place: facility, price: defaultPrice, poster: poster
     });
 
     location.href = 'booking.html?' + queryParams.toString();
 }
 
 // ==========================================
-// [5] 모달 및 캡차 제어
+// [5] 모달 제어 및 대기열 검증 로직
 // ==========================================
-function showCaptchaModal() {
-    document.getElementById("captchaModal").classList.remove('hidden');
-    document.getElementById("captchaModal").classList.add('flex');
-}
-
-function closeCaptchaModal() {
-    document.getElementById("captchaModal").classList.remove('flex');
-    document.getElementById("captchaModal").classList.add('hidden');
-    isBookingBtnClicked = false; // 💡 모달을 닫으면 스위치도 초기화!
-    resetButton();
-}
-
 function showWaitingModal(count) {
     const modal = document.getElementById('waitingModal');
     const countSpan = document.getElementById('waitingCount');
@@ -295,42 +279,14 @@ function closeWaitingModal() {
     }
 }
 
-// 💡 [핵심 수정 1] 캡차가 알아서 통과되면 당장 보내지 않고 토큰만 저장!
-window.javascriptCallback = function(token) {
-    console.log("캡차 인증 완료! 토큰을 보관합니다.");
-    cachedCaptchaToken = token;
-
-    // 사용자가 '예매하기' 버튼을 눌러놓은 상태라면 바로 서버로 전송
-    if (isBookingBtnClicked) {
-        document.getElementById("captcha-desc").innerText = "인증 확인 중입니다. 잠시만 기다려주세요...";
-        sendPreCheckRequest(token);
-    }
-};
-
-function handleFailedCaptcha() {
-    resetButton();
-    document.getElementById("captcha-desc").innerText = "부정 예매를 막기 위해 사람임을 증명해주세요.";
-    if (typeof turnstile !== 'undefined') turnstile.reset();
-}
-
-function retryWithCaptcha() {
-    const token = document.querySelector('[name="cf-turnstile-response"]')?.value;
-    if (!token) {
-        alert("사람임을 증명하기 위해 체크박스를 눌러주세요!");
-        return;
-    }
-    document.getElementById("captcha-desc").innerText = "인증 확인 중입니다...";
-    sendPreCheckRequest(token);
-}
-
 function resetButton() {
     const btn = document.getElementById('bookTicketBtn');
+    if (!btn) return;
     btn.disabled = false;
     btn.innerHTML = `<i data-lucide="armchair" class="w-5 h-5"></i> 좌석 선택 및 예매하기`;
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
-// 💡 [핵심 수정 2] 예매 버튼을 눌렀을 때의 동작
 async function handleBooking() {
     const userId = sessionStorage.getItem('u_id');
     if (!userId) {
@@ -347,32 +303,22 @@ async function handleBooking() {
         return;
     }
 
-    // 예매 시작! 스위치를 켭니다.
-    isBookingBtnClicked = true;
-
     const btn = document.getElementById('bookTicketBtn');
     btn.disabled = true;
-    btn.innerHTML = `<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> 확인 중...`;
+    btn.innerHTML = `<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> 대기열 확인 중...`;
     if (typeof lucide !== 'undefined') lucide.createIcons();
 
-    // 만약 백그라운드에서 캡차가 이미 성공해서 주머니에 토큰이 있다면, 모달창 안 띄우고 바로 직행!
-    if (cachedCaptchaToken) {
-        await sendPreCheckRequest(cachedCaptchaToken);
-    } else {
-        // 토큰이 없다면 빈 값으로 서버를 찔러서 캡차 모달창을 띄우게 만듭니다.
-        await sendPreCheckRequest(""); 
-    }
+    await sendPreCheckRequest(); 
 }
 
-async function sendPreCheckRequest(turnstileToken = "") {
-    // 💡 백엔드의 PreCheckRequest 규격에 맞게 딱 5가지 필수 데이터만 전송합니다.
-    // (불필요한 seat_num, perf_title, place, price 더미 데이터는 모두 삭제했습니다.)
+async function sendPreCheckRequest() {
     const requestData = {
         user_id: sessionStorage.getItem('u_id'),
         perf_id: currentPerformanceData.id,
         select_date: document.getElementById('bookDate').value,
         select_time: document.getElementById('bookTime').value,
-        turnstile_token: turnstileToken
+        // 💡 422 에러 차단: 백엔드가 캡차 토큰을 빈칸으로라도 받을 수 있게 처리
+        turnstile_token: "" 
     };
 
     try {
@@ -382,39 +328,26 @@ async function sendPreCheckRequest(turnstileToken = "") {
             body: JSON.stringify(requestData)
         });
 
-        // [1] 캡차 인증이 필요한 경우 (백엔드에서 403 Forbidden 반환)
-        if (response.status === 403) {
-            showCaptchaModal();
-            return;
-        }
-
         const result = await response.json();
 
-        // [2] 대기열에 걸린 경우
+        // [대기열에 걸렸을 때]
         if (result.status === "wait") {
             showWaitingModal(result.waiting_number);
-            // 3초 뒤에 서버에 내 순서가 왔는지 다시 물어봅니다. (폴링 방식)
-            setTimeout(() => sendPreCheckRequest(turnstileToken), 3000);
+            setTimeout(() => sendPreCheckRequest(), 3000);
             return;
         }
 
-        // [3] 대기열 통과 및 검증 성공 시
+        // [내 순서가 왔을 때]
         if (result.status === "success" || response.status === 200) {
             closeWaitingModal(); 
-            closeCaptchaModal(); 
-            isBookingBtnClicked = false; // 성공 후 스위치 초기화
-            moveToBookingPage(turnstileToken); // 좌석 선택 페이지로 이동
+            moveToBookingPage(); 
         } else {
-            // 그 외의 이유로 실패한 경우
             alert("❌ 진입 실패: " + (result.message || "알 수 없는 오류"));
-            handleFailedCaptcha();
-            isBookingBtnClicked = false;
+            resetButton();
         }
-
     } catch (error) {
         console.error("서버 연결 에러:", error);
         alert("⚠️ 서버와 통신할 수 없습니다. 다시 시도해주세요.");
-        handleFailedCaptcha();
-        isBookingBtnClicked = false;
+        resetButton();
     }
 }

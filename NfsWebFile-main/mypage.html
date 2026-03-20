@@ -76,20 +76,21 @@
             </div>
 
             <div id="reservation-list" class="space-y-5">
-                </div>
+            </div>
 
         </section>
     </main>
 
     <script>
-        const API_BASE_URL = "http://10.4.0.201";
-
         // 유틸리티: 숫자 콤마
         const formatNumber = (num) => new Intl.NumberFormat('ko-KR').format(num);
 
-        // 유틸리티: D-Day 뱃지 생성 (기준일은 편의상 고정, 추후 new Date()로 변경 가능)
-        const TODAY = new Date('2026-03-12T00:00:00');
+        // 유틸리티: D-Day 뱃지 생성 
+        // 💡 실제 서비스에서는 new Date()를 써야 하지만, 테스트 데이터(2026-03) 기준에 맞추기 위해 TODAY를 하드코딩
+        const TODAY = new Date('2026-03-19T00:00:00');
+        
         const getStatusBadge = (selectDateStr) => {
+            if (!selectDateStr) return '';
             const perfDate = new Date(selectDateStr + 'T00:00:00');
             const diffTime = perfDate - TODAY;
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -99,18 +100,16 @@
             return `<span class="px-2.5 py-1 bg-gray-100 text-gray-500 text-xs font-bold rounded-md">관람 완료</span>`;
         };
 
-        // ✨ [NEW] 로그아웃 처리 함수
+        // 로그아웃 처리 함수
         function handleLogout() {
             if(confirm('로그아웃 하시겠습니까?')) {
-                sessionStorage.removeItem('u_id');
-                sessionStorage.removeItem('pw'); // 비밀번호 정보 삭제
-                sessionStorage.removeItem('ename'); // 이름 정보 삭제
+                sessionStorage.clear(); // 전체 클리어로 변경
                 alert('로그아웃 되었습니다.');
-                window.location.href = 'index.html'; // 메인 페이지나 로그인 페이지로 이동
+                window.location.href = 'index.html'; 
             }
         }
 
-        // ✨ [NEW] 헤더 UI 동적 업데이트 (로그인 상태에 따라 분기)
+        // 헤더 UI 동적 업데이트
         function updateHeaderUI() {
             const authMenu = document.getElementById('auth-menu');
             const userId = sessionStorage.getItem('u_id');
@@ -141,7 +140,7 @@
             if (typeof lucide !== 'undefined') lucide.createIcons();
         }
 
-        // ✨ [UPDATE] 예매 내역 렌더링 (포스터 디자인 예쁘게 개선)
+        // 예매 내역 렌더링
         const renderReservations = (data) => {
             const container = document.getElementById('reservation-list');
             
@@ -165,12 +164,18 @@
                 return;
             }
 
-            const htmlContent = data.map(res => {
-                // 외부 사이트에 의존하지 않는 안전한 내장 SVG 대체 포스터 생성
+            // 최신 예매 내역이 위로 오도록 역순 정렬
+            const sortedData = data.sort((a, b) => {
+                if (!a.res_id || !b.res_id) return 0;
+                return b.res_id - a.res_id;
+            });
+
+            const htmlContent = sortedData.map(res => {
                 const fallbackPoster = `data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='400' viewBox='0 0 300 400'%3E%3Crect width='300' height='400' fill='%23f3e8ff'/%3E%3Ctext x='50%25' y='50%25' font-family='sans-serif' font-weight='bold' font-size='24' fill='%239333ea' dominant-baseline='middle' text-anchor='middle'%3EPULSE TICKET%3C/text%3E%3C/svg%3E`;
-                
-                // 데이터에 포스터가 아예 없으면 바로 대체 포스터 할당
                 const posterImg = res.poster || fallbackPoster;
+                
+                // 시간 포맷 정리 (14:00:00 -> 14:00)
+                const displayTime = res.select_time ? res.select_time.substring(0, 5) : '';
 
                 return `
                 <div class="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg hover:border-pulse-300 transition-all duration-300 group">
@@ -183,30 +188,29 @@
                         <div class="flex-1 w-full">
                             <div class="flex justify-between items-center mb-2">
                                 ${getStatusBadge(res.select_date)}
-                                <span class="text-xs text-gray-400 font-mono tracking-wider bg-gray-50 px-2 py-1 rounded">예매번호 ${res.res_id || res.id || '-'}</span>
+                                <span class="text-xs text-gray-400 font-mono tracking-wider bg-gray-50 px-2 py-1 rounded">예매번호 ${res.res_id || '-'}</span>
                             </div>
                             
                             <h4 class="text-xl font-extrabold mb-4 text-gray-900 leading-snug group-hover:text-pulse-600 transition-colors">
-                                ${res.perf_title}
+                                ${res.perf_title || '공연명 없음'}
                             </h4>
                             
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-y-2.5 gap-x-6">
                                 <div class="flex items-center gap-2.5 text-sm text-gray-600">
                                     <div class="w-6 h-6 rounded-full bg-pulse-50 flex items-center justify-center shrink-0"><i data-lucide="calendar" class="w-3.5 h-3.5 text-pulse-500"></i></div>
-                                    <span class="font-medium">${res.select_date} <span class="text-gray-300 mx-1">|</span> ${res.select_time.substring(0, 5)}</span>
+                                    <span class="font-medium">${res.select_date || '날짜미정'} <span class="text-gray-300 mx-1">|</span> ${displayTime}</span>
                                 </div>
                                 <div class="flex items-center gap-2.5 text-sm text-gray-600">
                                     <div class="w-6 h-6 rounded-full bg-pulse-50 flex items-center justify-center shrink-0"><i data-lucide="map-pin" class="w-3.5 h-3.5 text-pulse-500"></i></div>
-                                    <span class="truncate font-medium" title="${res.place}">${(res.place || '').split('(')[0].trim()}</span>
+                                    <span class="truncate font-medium" title="${res.place}">${(res.place || '장소미정').split('(')[0].trim()}</span>
                                 </div>
                                 <div class="flex items-center gap-2.5 text-sm text-gray-600">
                                     <div class="w-6 h-6 rounded-full bg-pulse-50 flex items-center justify-center shrink-0"><i data-lucide="armchair" class="w-3.5 h-3.5 text-pulse-500"></i></div>
-                                    <span class="font-bold text-gray-800">좌석 ${res.seat_num}</span>
+                                    <span class="font-bold text-gray-800">좌석 ${res.seat_num || '-'}</span>
                                 </div>
                                 <div class="flex items-center gap-2.5 text-sm text-gray-600">
                                     <div class="w-6 h-6 rounded-full bg-pulse-50 flex items-center justify-center shrink-0"><i data-lucide="credit-card" class="w-3.5 h-3.5 text-pulse-500"></i></div>
-                                    <span class="font-bold text-pulse-600">${formatNumber(res.price)}원</span>
-                                    ${res.res_date ? `<span class="text-[11px] text-gray-400 ml-1">(${res.res_date.substring(0, 10)} 예매)</span>` : ''}
+                                    <span class="font-bold text-pulse-600">${res.price ? formatNumber(res.price) : '0'}원</span>
                                 </div>
                             </div>
                         </div>
@@ -230,12 +234,16 @@
 
         const fetchReservations = async (userId) => {
             try {
-                const response = await fetch(`${API_BASE_URL}/api/reservations/${userId}`);
+                // 💡 [핵심 수정] 하드코딩된 IP를 지우고 상대경로 사용!
+                const response = await fetch(`/api/reservations/${userId}`);
                 
-                if (!response.ok) throw new Error('서버 응답 오류');
+                if (!response.ok) throw new Error(`서버 응답 오류 (상태코드: ${response.status})`);
                 
                 const result = await response.json();
-                const reservationData = result.data || result.reservations || result;
+                console.log("받아온 예매 내역 데이터:", result); // 디버깅용 콘솔
+                
+                // 백엔드가 어떻게 주느냐에 따라 배열을 찾아서 넘겨줌
+                const reservationData = result.data || result.reservations || result || [];
                 renderReservations(reservationData); 
                 
             } catch (error) {
@@ -244,7 +252,7 @@
                     <div class="py-12 text-center text-red-500 font-bold flex flex-col items-center bg-red-50/50 rounded-2xl border border-red-100">
                         <i data-lucide="wifi-off" class="w-12 h-12 mb-3 text-red-400"></i>
                         <span class="text-lg">예매 내역을 불러오는데 실패했습니다.</span>
-                        <span class="text-sm font-normal mt-1 text-red-400">서버(${API_BASE_URL}) 연결 상태를 확인해주세요.</span>
+                        <span class="text-sm font-normal mt-1 text-red-400">서버 연결 상태를 확인해주세요.</span>
                     </div>`;
                 lucide.createIcons();
             }
@@ -252,7 +260,6 @@
 
         // 초기화
         document.addEventListener('DOMContentLoaded', () => {
-            // 헤더 UI 무조건 먼저 업데이트
             updateHeaderUI();
             
             let userId = sessionStorage.getItem('u_id');
